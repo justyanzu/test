@@ -270,6 +270,7 @@ def append_assistant_message(
     error: str | None = None,
     ai_enabled: bool = False,
     ai_summary: str | None = None,
+    from_cache: bool = False,
 ) -> None:
     session = st.session_state.chat_sessions[chat_id]
     msg: dict = {
@@ -283,6 +284,8 @@ def append_assistant_message(
         msg["result"] = result
     if ai_summary:
         msg["ai_summary"] = ai_summary
+    if from_cache:
+        msg["from_cache"] = True
     session["messages"].append(msg)
     touch_chat(chat_id)
 
@@ -400,6 +403,14 @@ st.markdown(
     }}
     .ai-rating-outer ~ div p {{
         line-height: 1.65;
+    }}
+    .cache-hit-note {{
+        display: block;
+        margin: 0.75rem 0 0.5rem;
+        font-size: 0.75rem;
+        line-height: 1.4;
+        color: rgba(49, 51, 63, 0.55);
+        text-align: left;
     }}
     /* 语言分布图容器，避免图例与下文重叠 */
     .lang-chart-wrap {{
@@ -846,6 +857,15 @@ def render_ai_summary(summary: str) -> None:
     st.markdown(summary)
 
 
+def render_cache_hit_note() -> None:
+    st.markdown(
+        '<p class="cache-hit-note">'
+        "本次 URL 查询命中缓存，未调用 GitHub 和 DeepSeek API"
+        "</p>",
+        unsafe_allow_html=True,
+    )
+
+
 def render_ai_summary_slot(*, ai_enabled: bool, ai_summary: str | None) -> None:
     """在 chat_message 之外渲染 AI 区块。"""
     if not ai_enabled:
@@ -891,6 +911,8 @@ def render_message(msg: dict, index: int) -> None:
             ai_enabled=bool(msg.get("ai_enabled")),
             ai_summary=msg.get("ai_summary"),
         )
+        if msg.get("from_cache"):
+            render_cache_hit_note()
 
 
 def process_repo_query(prompt: str) -> None:
@@ -935,6 +957,7 @@ def process_repo_query(prompt: str) -> None:
             result=outcome.result,
             ai_enabled=bool(bundle.get("ai_enabled")),
             ai_summary=bundle.get("ai_summary"),
+            from_cache=from_cache,
         )
     else:
         append_assistant_message(chat_id, error=outcome.error or "分析失败")
